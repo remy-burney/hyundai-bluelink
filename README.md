@@ -111,5 +111,5 @@ python -m compileall custom_components tests
 [hacs-badge]: https://img.shields.io/badge/HACS-custom-orange.svg?style=flat-square
 [hacs-button]: https://my.home-assistant.io/badges/hacs_repository.svg
 [hacs-link]: https://my.home-assistant.io/redirect/hacs_repository/?owner=remy-burney&repository=hyundai-bluelink&category=integration
-[release-badge]: https://img.shields.io/badge/release-v0.1.3-blue?style=flat-square
+[release-badge]: https://img.shields.io/badge/release-v0.1.4-blue?style=flat-square
 [releases-link]: https://github.com/remy-burney/hyundai-bluelink/releases

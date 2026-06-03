@@ -6,7 +6,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 
 from .client import (
@@ -27,11 +27,12 @@ class HyundaiBluelinkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     @staticmethod
+    @callback
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
     ) -> config_entries.OptionsFlow:
         """Create the options flow."""
-        return HyundaiBluelinkOptionsFlow(config_entry)
+        return HyundaiBluelinkOptionsFlow()
 
     async def async_step_user(
         self,
@@ -106,10 +107,6 @@ class HyundaiBluelinkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class HyundaiBluelinkOptionsFlow(config_entries.OptionsFlow):
     """Options flow for Hyundai Bluelink."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize the options flow."""
-        self.config_entry = config_entry
 
     async def async_step_init(
         self,
