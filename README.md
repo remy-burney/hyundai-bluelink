@@ -37,6 +37,19 @@ Use this link to directly go to the repository in HACS:
 3. Restart Home Assistant.
 4. Add **Hyundai Bluelink** from **Settings > Devices & services**.
 
+## Icons and logos
+
+Brand assets are included in two places:
+
+- `custom_components/hyundai_bluelink/brand/` for Home Assistant's custom integration
+  brand loader.
+- `brand/` at the repository root for HACS repository views that look for
+  repository-level brand assets.
+
+If HACS still shows `icon not available` after updating, restart Home Assistant and
+hard-refresh the browser. HACS may keep showing a cached placeholder until its pending
+restart/update state clears.
+
 ## Remote-control PIN
 
 The remote-control PIN is the short security PIN used by the official Hyundai
@@ -111,5 +124,5 @@ python -m compileall custom_components tests
 [hacs-badge]: https://img.shields.io/badge/HACS-custom-orange.svg?style=flat-square
 [hacs-button]: https://my.home-assistant.io/badges/hacs_repository.svg
 [hacs-link]: https://my.home-assistant.io/redirect/hacs_repository/?owner=remy-burney&repository=hyundai-bluelink&category=integration
-[release-badge]: https://img.shields.io/badge/release-v0.1.4-blue?style=flat-square
+[release-badge]: https://img.shields.io/badge/release-v0.1.5-blue?style=flat-square
 [releases-link]: https://github.com/remy-burney/hyundai-bluelink/releases

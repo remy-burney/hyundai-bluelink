@@ -11,6 +11,7 @@ BRAND_DIR = (
     / "hyundai_bluelink"
     / "brand"
 )
+ROOT_BRAND_DIR = Path(__file__).parents[1] / "brand"
 
 
 def _read_png_size(path: Path) -> tuple[int, int]:
@@ -22,7 +23,8 @@ def _read_png_size(path: Path) -> tuple[int, int]:
 
 def test_brand_assets_are_available() -> None:
     """Validate Home Assistant/HACS brand assets are present."""
-    for filename in ("icon.png", "logo.png"):
-        path = BRAND_DIR / filename
-        assert path.exists()
-        assert _read_png_size(path) == (512, 512)
+    for brand_dir in (BRAND_DIR, ROOT_BRAND_DIR):
+        for filename in ("icon.png", "logo.png"):
+            path = brand_dir / filename
+            assert path.exists()
+            assert _read_png_size(path) == (512, 512)

@@ -18,4 +18,4 @@ def test_manifest_does_not_require_unpublished_aiobluelink() -> None:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
 
     assert "aiobluelink>=0.1.0" not in manifest["requirements"]
-    assert manifest["version"] == "0.1.4"
+    assert manifest["version"] == "0.1.5"
