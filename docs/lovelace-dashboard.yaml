@@ -1,0 +1,213 @@
+# Example Lovelace dashboard for a Hyundai Bluelink vehicle.
+#
+# Replace `santa_fe` with the entity slug Home Assistant created for your vehicle.
+# For a vehicle named "SANTA FE", the integration will normally create IDs such as
+# `sensor.santa_fe_range`, `lock.santa_fe_lock`, and
+# `binary_sensor.santa_fe_engine_running`.
+#
+# Optional HACS frontend cards used by this example:
+# - Mushroom
+# - card-mod
+# - slider-entity-row
+#
+# Upload your vehicle image to:
+# `<Home Assistant config>/www/images/white_suv_top_down.png`
+# It will be available in dashboards as:
+# `/local/images/white_suv_top_down.png`
+
+type: vertical-stack
+cards:
+  - type: picture
+    image: /local/images/white_suv_top_down.png
+    card_mod:
+      style: |
+        ha-card {
+          background: transparent;
+          border: none;
+          box-shadow: none;
+        }
+
+  - type: markdown
+    content: |
+      <p style="text-align: center; color: var(--secondary-text-color); margin-top: -10px;">
+        Last updated: {{ relative_time(states.sensor.santa_fe_range.last_updated) }} ago
+      </p>
+    card_mod:
+      style: |
+        ha-card {
+          background: transparent;
+          border: none;
+          box-shadow: none;
+        }
+
+  - type: custom:mushroom-template-card
+    primary: "{{ states('sensor.santa_fe_range') }} km"
+    secondary: Range
+    icon: mdi:map-marker-distance
+    layout: vertical
+    card_mod:
+      style: |
+        ha-card {
+          --card-primary-font-size: 36px;
+          --card-primary-font-weight: 500;
+          --card-primary-color: #008be3;
+          text-align: center;
+        }
+
+  - type: entities
+    title: Fuel and efficiency
+    show_header_toggle: false
+    entities:
+      - type: custom:slider-entity-row
+        entity: sensor.santa_fe_fuel_level
+        name: Fuel level
+        hide_state: false
+        card_mod:
+          style: |
+            :host {
+              --paper-slider-active-color: #008be3;
+              --paper-slider-knob-color: transparent;
+              pointer-events: none;
+            }
+      - entity: sensor.santa_fe_fuel_efficiency_accumulated
+        name: Fuel efficiency
+        icon: mdi:gas-station-outline
+      - entity: sensor.santa_fe_hybrid_battery
+        name: Hybrid battery
+        icon: mdi:battery-high
+      - entity: sensor.santa_fe_12v_battery
+        name: 12V battery
+        icon: mdi:car-battery
+
+  - type: grid
+    title: Engine / Lock Status
+    columns: 2
+    square: false
+    cards:
+      - type: custom:mushroom-entity-card
+        entity: binary_sensor.santa_fe_engine_running
+        name: Engine
+        icon: mdi:engine-outline
+        layout: vertical
+        secondary_info: state
+      - type: custom:mushroom-lock-card
+        entity: lock.santa_fe_lock
+        name: Lock
+        layout: vertical
+
+  - type: grid
+    title: Doors / Windows
+    columns: 3
+    square: false
+    cards:
+      - type: custom:mushroom-entity-card
+        entity: binary_sensor.santa_fe_front_driver_door
+        name: Driver door
+        icon: mdi:car-door
+        layout: vertical
+      - type: custom:mushroom-entity-card
+        entity: binary_sensor.santa_fe_front_passenger_door
+        name: Passenger door
+        icon: mdi:car-door
+        layout: vertical
+      - type: custom:mushroom-entity-card
+        entity: binary_sensor.santa_fe_trunk
+        name: Trunk
+        icon: mdi:car-back
+        layout: vertical
+      - type: custom:mushroom-entity-card
+        entity: binary_sensor.santa_fe_front_driver_window
+        name: Driver window
+        icon: mdi:car-door
+        layout: vertical
+      - type: custom:mushroom-entity-card
+        entity: binary_sensor.santa_fe_front_passenger_window
+        name: Passenger window
+        icon: mdi:car-door
+        layout: vertical
+      - type: custom:mushroom-entity-card
+        entity: binary_sensor.santa_fe_sunroof
+        name: Sunroof
+        icon: mdi:car-convertible
+        layout: vertical
+
+  - type: grid
+    title: Remote Controls
+    columns: 3
+    square: false
+    cards:
+      - type: custom:mushroom-entity-card
+        entity: button.santa_fe_start_engine
+        name: Start
+        icon: mdi:power
+        layout: vertical
+        tap_action:
+          action: call-service
+          service: button.press
+          target:
+            entity_id: button.santa_fe_start_engine
+      - type: custom:mushroom-entity-card
+        entity: button.santa_fe_stop_engine
+        name: Stop
+        icon: mdi:power-off
+        layout: vertical
+        tap_action:
+          action: call-service
+          service: button.press
+          target:
+            entity_id: button.santa_fe_stop_engine
+      - type: custom:mushroom-entity-card
+        entity: button.santa_fe_horn_and_light
+        name: Horn / Light
+        icon: mdi:bullhorn-outline
+        layout: vertical
+        tap_action:
+          action: call-service
+          service: button.press
+          target:
+            entity_id: button.santa_fe_horn_and_light
+      - type: custom:mushroom-entity-card
+        entity: button.santa_fe_open_windows
+        name: Open windows
+        icon: mdi:window-open-variant
+        layout: vertical
+        tap_action:
+          action: call-service
+          service: button.press
+          target:
+            entity_id: button.santa_fe_open_windows
+      - type: custom:mushroom-entity-card
+        entity: button.santa_fe_close_windows
+        name: Close windows
+        icon: mdi:window-closed-variant
+        layout: vertical
+        tap_action:
+          action: call-service
+          service: button.press
+          target:
+            entity_id: button.santa_fe_close_windows
+      - type: custom:mushroom-entity-card
+        entity: button.santa_fe_refresh
+        name: Refresh
+        icon: mdi:refresh
+        layout: vertical
+        tap_action:
+          action: call-service
+          service: button.press
+          target:
+            entity_id: button.santa_fe_refresh
+
+  - type: entities
+    title: Tyres
+    show_header_toggle: false
+    entities:
+      - entity: binary_sensor.santa_fe_low_tire_pressure
+        name: Low tyre pressure
+      - entity: sensor.santa_fe_front_left_tire_pressure
+        name: Front left
+      - entity: sensor.santa_fe_front_right_tire_pressure
+        name: Front right
+      - entity: sensor.santa_fe_rear_left_tire_pressure
+        name: Rear left
+      - entity: sensor.santa_fe_rear_right_tire_pressure
+        name: Rear right

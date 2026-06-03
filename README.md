@@ -43,6 +43,21 @@ Translation files are included for common Home Assistant locales. They currently
 the English source strings as safe fallback text until native translations are
 reviewed and updated per language.
 
+## Dashboard example
+
+An example Lovelace YAML dashboard is available in
+[docs/lovelace-dashboard.yaml](docs/lovelace-dashboard.yaml).
+
+The example is based on a vehicle named `SANTA FE`, so it uses entity IDs such as
+`sensor.santa_fe_range`, `lock.santa_fe_lock`, and
+`binary_sensor.santa_fe_engine_running`. Replace `santa_fe` with the entity slug Home
+Assistant creates for your vehicle.
+
+The dashboard example assumes these optional HACS frontend cards are installed:
+Mushroom, card-mod, and slider-entity-row. It also references a vehicle image at
+`/local/images/white_suv_top_down.png`, which maps to
+`<Home Assistant config>/www/images/white_suv_top_down.png`.
+
 ## Development checks
 
 ```powershell
