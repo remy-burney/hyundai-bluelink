@@ -1,0 +1,85 @@
+{
+  "title": "Hyundai Bluelink",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Hyundai Bluelink",
+        "description": "Sign in with your Hyundai Bluelink account.",
+        "data": {
+          "username": "Email",
+          "password": "Password",
+          "pin": "Remote control PIN",
+          "region": "Region"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate Hyundai Bluelink",
+        "description": "Hyundai Bluelink needs to reauthenticate your account.",
+        "data": {
+          "username": "Email",
+          "password": "Password",
+          "pin": "Remote control PIN",
+          "region": "Region"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to Hyundai Bluelink.",
+      "invalid_auth": "Invalid authentication.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This Hyundai Bluelink account is already configured.",
+      "reauth_successful": "Reauthentication was successful."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "odometer": { "name": "Odometer" },
+      "range": { "name": "Range" },
+      "fuel_level": { "name": "Fuel level" },
+      "hybrid_battery_level": { "name": "Hybrid battery" },
+      "aux_battery_level": { "name": "12V battery" },
+      "fuel_efficiency_accumulated": { "name": "Fuel efficiency accumulated" },
+      "remote_control_waiting_time": { "name": "Remote waiting time" },
+      "front_left_tire_pressure": { "name": "Front left tire pressure" },
+      "front_right_tire_pressure": { "name": "Front right tire pressure" },
+      "rear_left_tire_pressure": { "name": "Rear left tire pressure" },
+      "rear_right_tire_pressure": { "name": "Rear right tire pressure" }
+    },
+    "binary_sensor": {
+      "engine_running": { "name": "Engine running" },
+      "low_fuel": { "name": "Low fuel" },
+      "low_tire_pressure": { "name": "Low tire pressure" },
+      "remote_control_available": { "name": "Remote control available" },
+      "front_driver_door": { "name": "Front driver door" },
+      "front_passenger_door": { "name": "Front passenger door" },
+      "rear_left_door": { "name": "Rear left door" },
+      "rear_right_door": { "name": "Rear right door" },
+      "front_driver_window": { "name": "Front driver window" },
+      "front_passenger_window": { "name": "Front passenger window" },
+      "rear_left_window": { "name": "Rear left window" },
+      "rear_right_window": { "name": "Rear right window" },
+      "hood": { "name": "Hood" },
+      "trunk": { "name": "Trunk" },
+      "sunroof": { "name": "Sunroof" }
+    },
+    "button": {
+      "refresh": { "name": "Refresh" },
+      "start_engine": { "name": "Start engine" },
+      "stop_engine": { "name": "Stop engine" },
+      "horn": { "name": "Horn" },
+      "light": { "name": "Light" },
+      "horn_light": { "name": "Horn and light" },
+      "open_windows": { "name": "Open windows" },
+      "close_windows": { "name": "Close windows" },
+      "window_ventilation": { "name": "Window ventilation" }
+    },
+    "device_tracker": {
+      "location": { "name": "Location" }
+    },
+    "lock": {
+      "vehicle_lock": { "name": "Lock" }
+    }
+  }
+}

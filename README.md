@@ -37,6 +37,12 @@ Use this link to directly go to the repository in HACS:
 The integration currently expects an async upstream library named `aiobluelink` to be
 available from PyPI via the manifest requirement.
 
+## Translations
+
+Translation files are included for common Home Assistant locales. They currently use
+the English source strings as safe fallback text until native translations are
+reviewed and updated per language.
+
 ## Development checks
 
 ```powershell
