@@ -1,0 +1,81 @@
+refresh:
+  target:
+  fields:
+    vehicle_id:
+      required: false
+      selector:
+        text:
+      example: "cd7fce8d-ae93-4b5a-94ac-9d31181e0c6f"
+
+start_engine:
+  target:
+  fields:
+    vehicle_id:
+      required: false
+      selector:
+        text:
+      example: "cd7fce8d-ae93-4b5a-94ac-9d31181e0c6f"
+
+stop_engine:
+  target:
+  fields:
+    vehicle_id:
+      required: false
+      selector:
+        text:
+      example: "cd7fce8d-ae93-4b5a-94ac-9d31181e0c6f"
+
+horn:
+  target:
+  fields:
+    vehicle_id:
+      required: false
+      selector:
+        text:
+      example: "cd7fce8d-ae93-4b5a-94ac-9d31181e0c6f"
+
+light:
+  target:
+  fields:
+    vehicle_id:
+      required: false
+      selector:
+        text:
+      example: "cd7fce8d-ae93-4b5a-94ac-9d31181e0c6f"
+
+horn_light:
+  target:
+  fields:
+    vehicle_id:
+      required: false
+      selector:
+        text:
+      example: "cd7fce8d-ae93-4b5a-94ac-9d31181e0c6f"
+
+open_windows:
+  target:
+  fields:
+    vehicle_id:
+      required: false
+      selector:
+        text:
+      example: "cd7fce8d-ae93-4b5a-94ac-9d31181e0c6f"
+
+close_windows:
+  target:
+  fields:
+    vehicle_id:
+      required: false
+      selector:
+        text:
+      example: "cd7fce8d-ae93-4b5a-94ac-9d31181e0c6f"
+
+window_ventilation:
+  target:
+  fields:
+    vehicle_id:
+      required: false
+      selector:
+        text:
+      example: "cd7fce8d-ae93-4b5a-94ac-9d31181e0c6f"
+
