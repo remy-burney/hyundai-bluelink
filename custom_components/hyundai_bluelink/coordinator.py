@@ -117,7 +117,8 @@ class HyundaiBluelinkDataUpdateCoordinator(DataUpdateCoordinator[HyundaiBluelink
             await self.async_request_refresh()
             return
 
-        if command.requires_pin and not self.config_entry.data.get(CONF_PIN):
+        pin = self._remote_control_pin
+        if command.requires_pin and not pin:
             raise HomeAssistantError(
                 "This Bluelink action requires a PIN. Reconfigure the integration "
                 "and store the remote-control PIN first."
@@ -133,7 +134,7 @@ class HyundaiBluelinkDataUpdateCoordinator(DataUpdateCoordinator[HyundaiBluelink
         try:
             kwargs: dict[str, Any] = {}
             if command.requires_pin:
-                kwargs["pin"] = self.config_entry.data[CONF_PIN]
+                kwargs["pin"] = pin
             await method(resolved_vehicle_id, **kwargs)
         except BluelinkAuthenticationError as exc:
             raise ConfigEntryAuthFailed from exc
@@ -156,7 +157,8 @@ class HyundaiBluelinkDataUpdateCoordinator(DataUpdateCoordinator[HyundaiBluelink
         vehicle_id: str | None,
     ) -> None:
         """Call a PIN-protected client method."""
-        if not self.config_entry.data.get(CONF_PIN):
+        pin = self._remote_control_pin
+        if not pin:
             raise HomeAssistantError(
                 "This Bluelink action requires a PIN. Reconfigure the integration "
                 "and store the remote-control PIN first."
@@ -168,7 +170,7 @@ class HyundaiBluelinkDataUpdateCoordinator(DataUpdateCoordinator[HyundaiBluelink
             )
         await method(
             self._resolve_vehicle_id(vehicle_id),
-            pin=self.config_entry.data[CONF_PIN],
+            pin=pin,
         )
         await self.async_request_refresh()
 
@@ -188,6 +190,13 @@ class HyundaiBluelinkDataUpdateCoordinator(DataUpdateCoordinator[HyundaiBluelink
         if len(vehicles) == 1:
             return next(iter(vehicles))
         raise HomeAssistantError("vehicle_id is required when multiple vehicles exist.")
+
+    @property
+    def _remote_control_pin(self) -> str | None:
+        """Return the configured remote-control PIN."""
+        if CONF_PIN in self.config_entry.options:
+            return self.config_entry.options.get(CONF_PIN) or None
+        return self.config_entry.data.get(CONF_PIN) or None
 
 
 def _as_mapping(value: Any) -> dict[str, Any]:

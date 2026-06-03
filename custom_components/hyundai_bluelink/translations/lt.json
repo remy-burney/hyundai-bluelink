@@ -33,6 +33,17 @@
       "reauth_successful": "Reauthentication was successful."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Hyundai Bluelink options",
+        "description": "Update the remote-control PIN used for lock, unlock, engine, horn, light, and window commands. Leave it empty to disable PIN-protected remote commands.",
+        "data": {
+          "pin": "Remote control PIN"
+        }
+      }
+    }
+  },
   "entity": {
     "sensor": {
       "odometer": { "name": "Odometer" },
@@ -80,6 +91,62 @@
     },
     "lock": {
       "vehicle_lock": { "name": "Lock" }
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Refresh vehicle",
+      "description": "Request a vehicle refresh through Hyundai Bluelink.",
+      "fields": {
+        "vehicle_id": {
+          "name": "Vehicle ID",
+          "description": "Hyundai vehicle ID. Required when multiple vehicles exist."
+        }
+      }
+    },
+    "start_engine": {
+      "name": "Start engine",
+      "description": "Start the vehicle engine through Hyundai Bluelink.",
+      "fields": {
+        "vehicle_id": {
+          "name": "Vehicle ID",
+          "description": "Hyundai vehicle ID. Required when multiple vehicles exist."
+        }
+      }
+    },
+    "stop_engine": {
+      "name": "Stop engine",
+      "description": "Stop the vehicle engine through Hyundai Bluelink.",
+      "fields": {
+        "vehicle_id": {
+          "name": "Vehicle ID",
+          "description": "Hyundai vehicle ID. Required when multiple vehicles exist."
+        }
+      }
+    },
+    "horn": {
+      "name": "Horn",
+      "description": "Sound the vehicle horn through Hyundai Bluelink."
+    },
+    "light": {
+      "name": "Light",
+      "description": "Flash the vehicle lights through Hyundai Bluelink."
+    },
+    "horn_light": {
+      "name": "Horn and light",
+      "description": "Sound the horn and flash the lights through Hyundai Bluelink."
+    },
+    "open_windows": {
+      "name": "Open windows",
+      "description": "Open the vehicle windows through Hyundai Bluelink."
+    },
+    "close_windows": {
+      "name": "Close windows",
+      "description": "Close the vehicle windows through Hyundai Bluelink."
+    },
+    "window_ventilation": {
+      "name": "Window ventilation",
+      "description": "Start window ventilation through Hyundai Bluelink."
     }
   }
 }

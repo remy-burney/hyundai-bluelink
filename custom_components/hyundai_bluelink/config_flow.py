@@ -26,6 +26,13 @@ class HyundaiBluelinkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @staticmethod
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Create the options flow."""
+        return HyundaiBluelinkOptionsFlow(config_entry)
+
     async def async_step_user(
         self,
         user_input: dict[str, Any] | None = None,
@@ -97,6 +104,30 @@ class HyundaiBluelinkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
 
+class HyundaiBluelinkOptionsFlow(config_entries.OptionsFlow):
+    """Options flow for Hyundai Bluelink."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize the options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Manage integration options."""
+        if user_input is not None:
+            return self.async_create_entry(
+                title="",
+                data={CONF_PIN: user_input.get(CONF_PIN, "")},
+            )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=_options_schema(self.config_entry),
+        )
+
+
 async def _async_validate_input(
     hass: HomeAssistant,
     data: dict[str, Any],
@@ -138,6 +169,24 @@ def _data_schema(defaults: dict[str, Any] | None) -> vol.Schema:
                 default=defaults.get(CONF_REGION, DEFAULT_REGION),
             ): selector.SelectSelector(
                 selector.SelectSelectorConfig(options=[DEFAULT_REGION])
+            ),
+        }
+    )
+
+
+def _options_schema(config_entry: config_entries.ConfigEntry) -> vol.Schema:
+    pin = (
+        config_entry.options.get(CONF_PIN)
+        if CONF_PIN in config_entry.options
+        else config_entry.data.get(CONF_PIN, "")
+    )
+    return vol.Schema(
+        {
+            vol.Optional(
+                CONF_PIN,
+                default=pin or "",
+            ): selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
             ),
         }
     )
