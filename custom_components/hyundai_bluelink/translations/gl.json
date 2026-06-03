@@ -77,6 +77,7 @@
     },
     "button": {
       "refresh": { "name": "Refresh" },
+      "live_refresh": { "name": "Live refresh" },
       "start_engine": { "name": "Start engine" },
       "stop_engine": { "name": "Stop engine" },
       "horn": { "name": "Horn" },
@@ -96,7 +97,17 @@
   "services": {
     "refresh": {
       "name": "Refresh vehicle",
-      "description": "Request a vehicle refresh through Hyundai Bluelink.",
+      "description": "Refresh cached vehicle data through Hyundai Bluelink.",
+      "fields": {
+        "vehicle_id": {
+          "name": "Vehicle ID",
+          "description": "Hyundai vehicle ID. Required when multiple vehicles exist."
+        }
+      }
+    },
+    "live_refresh": {
+      "name": "Live refresh vehicle",
+      "description": "Request a live vehicle status refresh through Hyundai Bluelink. This requires the remote-control PIN.",
       "fields": {
         "vehicle_id": {
           "name": "Vehicle ID",

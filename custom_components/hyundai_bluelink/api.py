@@ -144,6 +144,22 @@ class AsyncBluelinkClient:
         """Refresh cached vehicle status without requiring a remote-control PIN."""
         return await self.async_get_vehicle_status(vehicle_id)
 
+    async def async_live_refresh_vehicle_status(
+        self,
+        vehicle_id: str,
+        *,
+        pin: str,
+    ) -> dict[str, Any]:
+        """Request live vehicle status through the PIN-protected v2 endpoint."""
+        vehicle = await self._async_get_vehicle_record(vehicle_id)
+        ccs2 = _ccs2_supported(vehicle)
+        path = (
+            f"/api/v2/spa/vehicles/{vehicle_id}/ccs2/carstatus"
+            if ccs2
+            else f"/api/v2/spa/vehicles/{vehicle_id}/status"
+        )
+        return await self._async_control_request("GET", path, pin=pin, ccs2=ccs2)
+
     async def async_lock(self, vehicle_id: str, *, pin: str) -> dict[str, Any]:
         """Lock the vehicle."""
         return await self._async_vehicle_command(

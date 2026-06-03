@@ -37,6 +37,12 @@ class BluelinkCommand:
                 requires_pin=False,
             ),
             cls(
+                key="live_refresh",
+                translation_key="live_refresh",
+                client_method="async_live_refresh_vehicle_status",
+                icon="mdi:refresh-circle",
+            ),
+            cls(
                 key="start_engine",
                 translation_key="start_engine",
                 client_method="async_start_engine",

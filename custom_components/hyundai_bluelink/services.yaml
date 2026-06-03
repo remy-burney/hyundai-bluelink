@@ -7,6 +7,15 @@ refresh:
         text:
       example: "cd7fce8d-ae93-4b5a-94ac-9d31181e0c6f"
 
+live_refresh:
+  target:
+  fields:
+    vehicle_id:
+      required: false
+      selector:
+        text:
+      example: "cd7fce8d-ae93-4b5a-94ac-9d31181e0c6f"
+
 start_engine:
   target:
   fields:
@@ -78,4 +87,3 @@ window_ventilation:
       selector:
         text:
       example: "cd7fce8d-ae93-4b5a-94ac-9d31181e0c6f"
-

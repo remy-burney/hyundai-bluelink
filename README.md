@@ -23,7 +23,8 @@ add Home Assistant pytest coverage.
 - All telemetry entities read from one `DataUpdateCoordinator`.
 - Remote commands are exposed as Home Assistant entities first:
   - `lock` entity for lock/unlock.
-  - `button` entities for start engine, stop engine, horn, lights, windows, and refresh.
+  - `button` entities for cached refresh, live refresh, start engine, stop engine,
+    horn, lights, and windows.
 
 ## HACS installation
 
@@ -35,6 +36,46 @@ Use this link to directly go to the repository in HACS:
 2. Install **Hyundai Bluelink**.
 3. Restart Home Assistant.
 4. Add **Hyundai Bluelink** from **Settings > Devices & services**.
+
+## Remote-control PIN
+
+The remote-control PIN is the short security PIN used by the official Hyundai
+Bluelink mobile app when you run remote actions such as lock, unlock, start engine,
+stop engine, horn, lights, or window control.
+
+It is not your Hyundai account password. Status-only entities such as range, fuel,
+battery, doors, windows, and location can work without the PIN, but PIN-protected
+remote commands will fail until it is configured.
+
+To find, set, or reset it in the mobile app:
+
+1. Open the official Hyundai Bluelink app.
+2. Open **More** or **Settings**.
+3. Look for **PIN**, **Remote control PIN**, **Security PIN**, or **Change PIN**.
+4. If the app asks for a PIN when you run a remote action, use that same PIN here.
+5. If you forgot it, use the app's reset/change PIN flow.
+
+To add or change the PIN in Home Assistant after setup:
+
+1. Go to **Settings > Devices & services**.
+2. Open **Hyundai Bluelink**.
+3. Select **Configure**.
+4. Enter the remote-control PIN and submit.
+5. Restart Home Assistant if the Configure button does not appear immediately after a
+   HACS update.
+
+## Refresh behavior
+
+The integration polls cached Hyundai Bluelink vehicle data every 5 minutes through
+one `DataUpdateCoordinator`. All sensors, binary sensors, locks, buttons, and device
+trackers read from that shared coordinator data.
+
+Two refresh buttons are exposed:
+
+- **Refresh**: refetches the cached Hyundai API status without requiring the PIN.
+- **Live refresh**: calls the PIN-protected v2 live-status endpoint before the
+  coordinator refetches vehicle status. This is useful when you want to ask Hyundai
+  for newer car telemetry on demand.
 
 ## Translations
 
@@ -70,5 +111,5 @@ python -m compileall custom_components tests
 [hacs-badge]: https://img.shields.io/badge/HACS-custom-orange.svg?style=flat-square
 [hacs-button]: https://my.home-assistant.io/badges/hacs_repository.svg
 [hacs-link]: https://my.home-assistant.io/redirect/hacs_repository/?owner=remy-burney&repository=hyundai-bluelink&category=integration
-[release-badge]: https://img.shields.io/badge/release-v0.1.2-blue?style=flat-square
+[release-badge]: https://img.shields.io/badge/release-v0.1.3-blue?style=flat-square
 [releases-link]: https://github.com/remy-burney/hyundai-bluelink/releases

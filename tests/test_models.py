@@ -158,4 +158,6 @@ def test_command_definitions_map_to_upstream_client_methods() -> None:
     assert commands["open_windows"].client_method == "async_open_windows"
     assert commands["close_windows"].client_method == "async_close_windows"
     assert commands["refresh"].requires_pin is False
+    assert commands["live_refresh"].client_method == "async_live_refresh_vehicle_status"
+    assert commands["live_refresh"].requires_pin is True
     assert commands["start_engine"].requires_pin is True

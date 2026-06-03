@@ -10,6 +10,6 @@ DEFAULT_REGION = "AU"
 
 ATTR_VEHICLE_ID = "vehicle_id"
 
-DEFAULT_SCAN_INTERVAL = timedelta(minutes=10)
+DEFAULT_SCAN_INTERVAL = timedelta(minutes=5)
 
 MANUFACTURER = "Hyundai"

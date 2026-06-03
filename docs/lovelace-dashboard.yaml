@@ -196,6 +196,16 @@ cards:
           service: button.press
           target:
             entity_id: button.santa_fe_refresh
+      - type: custom:mushroom-entity-card
+        entity: button.santa_fe_live_refresh
+        name: Live refresh
+        icon: mdi:refresh-circle
+        layout: vertical
+        tap_action:
+          action: call-service
+          service: button.press
+          target:
+            entity_id: button.santa_fe_live_refresh
 
   - type: entities
     title: Tyres
