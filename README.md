@@ -5,19 +5,21 @@
 [![Downloads][downloads-badge]][releases-link]
 [![Build][build-badge]][build-link]
 
-Custom component scaffold for Hyundai Bluelink Australia, using the Home Assistant
-domain `hyundai_bluelink`.
+Custom component for Hyundai Bluelink Australia, using the Home Assistant domain
+`hyundai_bluelink`.
 
 This repository is structured so `custom_components/hyundai_bluelink` can be copied
-into `homeassistant/components/hyundai_bluelink` later. For a Core submission, remove
-the `version` key from `manifest.json`, publish the upstream `aiobluelink` package to
-PyPI, and add Home Assistant pytest coverage.
+into `homeassistant/components/hyundai_bluelink` later. For a Core submission, move
+the bundled API adapter into an upstream `aiobluelink` package, publish it to PyPI,
+restore the manifest requirement, remove the `version` key from `manifest.json`, and
+add Home Assistant pytest coverage.
 
 ## Architecture
 
 - Home Assistant owns config flow, entity setup, polling, and device/action exposure.
-- Hyundai HTTP, authentication, token refresh, PIN handling, and command payloads belong
-  in the standalone async upstream package `aiobluelink`.
+- Hyundai HTTP, authentication, token refresh, PIN handling, and command payloads are
+  isolated behind the async client wrapper. The HACS build currently includes a local
+  adapter so setup works before `aiobluelink` is published.
 - All telemetry entities read from one `DataUpdateCoordinator`.
 - Remote commands are exposed as Home Assistant entities first:
   - `lock` entity for lock/unlock.
@@ -33,9 +35,6 @@ Use this link to directly go to the repository in HACS:
 2. Install **Hyundai Bluelink**.
 3. Restart Home Assistant.
 4. Add **Hyundai Bluelink** from **Settings > Devices & services**.
-
-The integration currently expects an async upstream library named `aiobluelink` to be
-available from PyPI via the manifest requirement.
 
 ## Translations
 
@@ -71,5 +70,5 @@ python -m compileall custom_components tests
 [hacs-badge]: https://img.shields.io/badge/HACS-custom-orange.svg?style=flat-square
 [hacs-button]: https://my.home-assistant.io/badges/hacs_repository.svg
 [hacs-link]: https://my.home-assistant.io/redirect/hacs_repository/?owner=remy-burney&repository=hyundai-bluelink&category=integration
-[release-badge]: https://img.shields.io/badge/release-v0.1.0-blue?style=flat-square
+[release-badge]: https://img.shields.io/badge/release-v0.1.1-blue?style=flat-square
 [releases-link]: https://github.com/remy-burney/hyundai-bluelink/releases

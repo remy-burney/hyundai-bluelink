@@ -11,7 +11,7 @@ from .const import CONF_PIN, CONF_REGION, DEFAULT_REGION
 try:
     from aiobluelink import AsyncBluelinkClient as _AsyncBluelinkClient
 except ImportError:
-    _AsyncBluelinkClient = None
+    from .api import AsyncBluelinkClient as _AsyncBluelinkClient
 
 try:
     from aiobluelink.exceptions import (
@@ -19,16 +19,12 @@ try:
         BluelinkConnectionError,
     )
 except ImportError:
-
-    class BluelinkAuthenticationError(Exception):
-        """Authentication error raised by the upstream Bluelink client."""
-
-    class BluelinkConnectionError(Exception):
-        """Connection error raised by the upstream Bluelink client."""
-
-
-class BluelinkClientMissingError(BluelinkConnectionError):
-    """Raised when the upstream async Bluelink client is not installed."""
+    from .api import (
+        BluelinkAuthenticationError as BluelinkAuthenticationError,
+    )
+    from .api import (
+        BluelinkConnectionError as BluelinkConnectionError,
+    )
 
 
 class BluelinkClientProtocol(Protocol):
@@ -63,12 +59,6 @@ async def async_create_client(
     data: dict[str, Any],
 ) -> BluelinkClientProtocol:
     """Create the upstream async Bluelink client."""
-    if _AsyncBluelinkClient is None:
-        raise BluelinkClientMissingError(
-            "The aiobluelink package is not installed. Publish/install the upstream "
-            "async client before loading this integration."
-        )
-
     session = async_get_clientsession(hass)
     region = data.get(CONF_REGION, DEFAULT_REGION)
     try:
