@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.components.device_tracker import SourceType, TrackerEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -62,3 +64,21 @@ class HyundaiBluelinkDeviceTracker(HyundaiBluelinkEntity, TrackerEntity):
     def source_type(self) -> SourceType:
         """Return the location source type."""
         return SourceType.GPS
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose stable source times so automations can reject stale positions."""
+        vehicle = self.vehicle_data
+        location_time = vehicle.location_updated_at
+        status_time = vehicle.status_updated_at
+        return {
+            "location_updated_at": location_time.isoformat() if location_time else None,
+            "status_updated_at": status_time.isoformat() if status_time else None,
+            "location_source": "Hyundai cached location",
+            "heading": vehicle.heading,
+            "poll_interval_seconds": (
+                self.coordinator.update_interval.total_seconds()
+                if self.coordinator.update_interval else None
+            ),
+            "polling_paused": self.coordinator.vacation,
+        }

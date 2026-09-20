@@ -1,0 +1,6 @@
+aiohttp
+jinja2
+pytest
+PyYAML
+ruff
+tzdata

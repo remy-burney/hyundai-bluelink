@@ -4,11 +4,12 @@
 # For a vehicle named "SANTA FE", the integration will normally create IDs such as
 # `sensor.santa_fe_range`, `lock.santa_fe_lock`, and
 # `binary_sensor.santa_fe_engine_running`.
+# Your entity ID format may also include the area (for example
+# `switch.garage_santa_fe_vacation`); check the Vacation switch's actual ID.
 #
 # Optional HACS frontend cards used by this example:
 # - Mushroom
 # - card-mod
-# - slider-entity-row
 #
 # Upload your vehicle image to:
 # `<Home Assistant config>/www/images/white_suv_top_down.png`
@@ -17,6 +18,34 @@
 
 type: vertical-stack
 cards:
+  - type: entities
+    title: Car checks
+    show_header_toggle: false
+    entities:
+      - entity: switch.santa_fe_vacation
+        name: Vacation
+
+  - type: markdown
+    content: >-
+      {% if state_attr('device_tracker.santa_fe_location', 'polling_paused') %}
+      **Vacation is on.** Bluelink checks and remote controls are paused.
+      {% else %}
+      {% set interval = state_attr('device_tracker.santa_fe_location', 'poll_interval_seconds') %}
+      {% if interval %}Checking every {{ (interval / 60) | int }} minutes.{% endif %}
+      {% endif %}
+
+      [Edit weekly schedule](/config/helpers) · [Bluelink settings](/config/integrations/integration/hyundai_bluelink)
+
+  - type: map
+    title: Car location - last 24 hours
+    entities:
+      - entity: device_tracker.santa_fe_location
+        name: Car
+      - zone.home
+    hours_to_show: 24
+    auto_fit: true
+    default_zoom: 14
+
   - type: picture
     image: /local/images/white_suv_top_down.png
     card_mod:
@@ -30,7 +59,9 @@ cards:
   - type: markdown
     content: |
       <p style="text-align: center; color: var(--secondary-text-color); margin-top: -10px;">
-        Last updated: {{ relative_time(states.sensor.santa_fe_range.last_updated) }} ago
+        {% set stamp = state_attr('device_tracker.santa_fe_location', 'status_updated_at') %}
+        {% if stamp %}Vehicle reported: {{ as_local(as_datetime(stamp)).strftime('%d %b, %I:%M %p') }}.
+        {% else %}Vehicle report time unavailable.{% endif %}
       </p>
     card_mod:
       style: |
@@ -58,17 +89,9 @@ cards:
     title: Fuel and efficiency
     show_header_toggle: false
     entities:
-      - type: custom:slider-entity-row
-        entity: sensor.santa_fe_fuel_level
+      - entity: sensor.santa_fe_fuel_level
         name: Fuel level
-        hide_state: false
-        card_mod:
-          style: |
-            :host {
-              --paper-slider-active-color: #008be3;
-              --paper-slider-knob-color: transparent;
-              pointer-events: none;
-            }
+        icon: mdi:gas-station
       - entity: sensor.santa_fe_fuel_efficiency_accumulated
         name: Fuel efficiency
         icon: mdi:gas-station-outline

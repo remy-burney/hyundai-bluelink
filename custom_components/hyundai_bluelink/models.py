@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, Self
+from zoneinfo import ZoneInfo
 
 CCS2_DRIVER_DOOR = "Cabin.Door.Row1.Driver"
 CCS2_PASSENGER_DOOR = "Cabin.Door.Row1.Passenger"
@@ -13,6 +16,8 @@ CCS2_DRIVER_WINDOW = "Cabin.Window.Row1.Driver"
 CCS2_PASSENGER_WINDOW = "Cabin.Window.Row1.Passenger"
 CCS2_REAR_LEFT_WINDOW = "Cabin.Window.Row2.Left"
 CCS2_REAR_RIGHT_WINDOW = "Cabin.Window.Row2.Right"
+
+AU_TIMEZONE = ZoneInfo("Australia/Sydney")
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +164,23 @@ class BluelinkVehicleData:
             _get_path(self.status, "resMsg.lastUpdateTime"),
             _get_path(self.raw_vehicle_state, "Date"),
             _get_path(self.raw_legacy_state, "time"),
+        )
+
+    @property
+    def status_updated_at(self) -> datetime | None:
+        """Return vehicle observation time, never the time we polled the cloud."""
+        if self.raw_vehicle_state:
+            # CCS2 Date is UTC even when the vehicle's Offset says AEST/AEDT.
+            return _parse_timestamp(_get_path(self.raw_vehicle_state, "Date"), UTC)
+        return _parse_timestamp(_get_path(self.raw_legacy_state, "time"), AU_TIMEZONE)
+
+    def has_recent_running_status(self, now: datetime, max_age: timedelta) -> bool:
+        """Avoid fast polling indefinitely on an old engine-on snapshot."""
+        stamp = self.status_updated_at
+        return (
+            self.is_engine_running is True
+            and stamp is not None
+            and timedelta(0) <= now - stamp <= max_age
         )
 
     @property
@@ -410,17 +432,57 @@ class BluelinkVehicleData:
     @property
     def latitude(self) -> float | None:
         """Return vehicle latitude."""
-        return _as_float(_get_path(self.location or {}, "resMsg.coord.lat"))
+        coords = self._coordinates
+        return coords[0] if coords else None
 
     @property
     def longitude(self) -> float | None:
         """Return vehicle longitude."""
-        return _as_float(_get_path(self.location or {}, "resMsg.coord.lon"))
+        coords = self._coordinates
+        return coords[1] if coords else None
+
+    @property
+    def _coordinates(self) -> tuple[float, float] | None:
+        """Publish coordinates only as a valid pair."""
+        raw_lat = _get_path(self.location or {}, "resMsg.coord.lat")
+        raw_lon = _get_path(self.location or {}, "resMsg.coord.lon")
+        if isinstance(raw_lat, bool) or isinstance(raw_lon, bool):
+            return None
+        lat, lon = _as_float(raw_lat), _as_float(raw_lon)
+        if lat is None or lon is None or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            return None
+        return lat, lon
+
+    @property
+    def location_updated_at(self) -> datetime | None:
+        """Return the AU parked-location source time with daylight saving handled."""
+        return _parse_timestamp(
+            _get_path(self.location or {}, "resMsg.time"), AU_TIMEZONE
+        )
 
     @property
     def heading(self) -> float | None:
         """Return vehicle heading in degrees."""
         return _as_float(_get_path(self.location or {}, "resMsg.head"))
+
+
+def _parse_timestamp(value: Any, timezone: tzinfo) -> datetime | None:
+    """Parse Hyundai's compact timestamp without inventing missing observations."""
+    if not isinstance(value, str) or not re.fullmatch(
+        r"[0-9]{14}(?:\.[0-9]{1,6})?", value
+    ):
+        return None
+    for fmt in ("%Y%m%d%H%M%S", "%Y%m%d%H%M%S.%f"):
+        try:
+            local = datetime.strptime(value, fmt).replace(tzinfo=timezone)
+            # Hyundai supplies no offset to distinguish repeated wall times or
+            # resolve nonexistent times at daylight-saving transitions.
+            if local.utcoffset() != local.replace(fold=1).utcoffset():
+                return None
+            return local.astimezone(UTC)
+        except ValueError:
+            pass
+    return None
 
 
 def _get_path(data: Any, path: str) -> Any:

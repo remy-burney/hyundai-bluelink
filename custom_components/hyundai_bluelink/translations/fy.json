@@ -25,6 +25,7 @@
     },
     "error": {
       "cannot_connect": "Failed to connect to Hyundai Bluelink.",
+      "account_action_required": "Sign in to the official Bluelink app and complete any password or account prompts. If you changed your password, enter the new password here.",
       "invalid_auth": "Invalid authentication.",
       "unknown": "Unexpected error."
     },
@@ -37,61 +38,146 @@
     "step": {
       "init": {
         "title": "Hyundai Bluelink options",
-        "description": "Update the remote-control PIN used for lock, unlock, engine, horn, light, and window commands. Leave it empty to disable PIN-protected remote commands.",
+        "description": "Select a Schedule helper to choose weekly periods for frequent checks. Edit its time blocks under Settings > Devices & services > Helpers. Outside those periods (or without a schedule), use the outside-schedule interval. Vacation stops all automatic and manual requests for every vehicle in this account, including after a restart. Turn it off to resume. The remote-control PIN is used for vehicle commands; leave it empty to disable them.",
         "data": {
-          "pin": "Remote control PIN"
+          "pin": "Remote control PIN",
+          "polling_schedule": "Frequent-check schedule",
+          "active_interval": "Check interval during schedule",
+          "idle_interval": "Check interval outside schedule",
+          "vacation": "Vacation - pause all Bluelink requests"
         }
       }
     }
   },
   "entity": {
     "sensor": {
-      "odometer": { "name": "Odometer" },
-      "range": { "name": "Range" },
-      "fuel_level": { "name": "Fuel level" },
-      "hybrid_battery_level": { "name": "Hybrid battery" },
-      "aux_battery_level": { "name": "12V battery" },
-      "fuel_efficiency_accumulated": { "name": "Fuel efficiency accumulated" },
-      "remote_control_waiting_time": { "name": "Remote waiting time" },
-      "front_left_tire_pressure": { "name": "Front left tire pressure" },
-      "front_right_tire_pressure": { "name": "Front right tire pressure" },
-      "rear_left_tire_pressure": { "name": "Rear left tire pressure" },
-      "rear_right_tire_pressure": { "name": "Rear right tire pressure" }
+      "odometer": {
+        "name": "Odometer"
+      },
+      "range": {
+        "name": "Range"
+      },
+      "fuel_level": {
+        "name": "Fuel level"
+      },
+      "hybrid_battery_level": {
+        "name": "Hybrid battery"
+      },
+      "aux_battery_level": {
+        "name": "12V battery"
+      },
+      "fuel_efficiency_accumulated": {
+        "name": "Fuel efficiency accumulated"
+      },
+      "remote_control_waiting_time": {
+        "name": "Remote waiting time"
+      },
+      "front_left_tire_pressure": {
+        "name": "Front left tire pressure"
+      },
+      "front_right_tire_pressure": {
+        "name": "Front right tire pressure"
+      },
+      "rear_left_tire_pressure": {
+        "name": "Rear left tire pressure"
+      },
+      "rear_right_tire_pressure": {
+        "name": "Rear right tire pressure"
+      }
     },
     "binary_sensor": {
-      "engine_running": { "name": "Engine running" },
-      "low_fuel": { "name": "Low fuel" },
-      "low_tire_pressure": { "name": "Low tire pressure" },
-      "remote_control_available": { "name": "Remote control available" },
-      "front_driver_door": { "name": "Front driver door" },
-      "front_passenger_door": { "name": "Front passenger door" },
-      "rear_left_door": { "name": "Rear left door" },
-      "rear_right_door": { "name": "Rear right door" },
-      "front_driver_window": { "name": "Front driver window" },
-      "front_passenger_window": { "name": "Front passenger window" },
-      "rear_left_window": { "name": "Rear left window" },
-      "rear_right_window": { "name": "Rear right window" },
-      "hood": { "name": "Hood" },
-      "trunk": { "name": "Trunk" },
-      "sunroof": { "name": "Sunroof" }
+      "engine_running": {
+        "name": "Engine running"
+      },
+      "low_fuel": {
+        "name": "Low fuel"
+      },
+      "low_tire_pressure": {
+        "name": "Low tire pressure"
+      },
+      "remote_control_available": {
+        "name": "Remote control available"
+      },
+      "front_driver_door": {
+        "name": "Front driver door"
+      },
+      "front_passenger_door": {
+        "name": "Front passenger door"
+      },
+      "rear_left_door": {
+        "name": "Rear left door"
+      },
+      "rear_right_door": {
+        "name": "Rear right door"
+      },
+      "front_driver_window": {
+        "name": "Front driver window"
+      },
+      "front_passenger_window": {
+        "name": "Front passenger window"
+      },
+      "rear_left_window": {
+        "name": "Rear left window"
+      },
+      "rear_right_window": {
+        "name": "Rear right window"
+      },
+      "hood": {
+        "name": "Hood"
+      },
+      "trunk": {
+        "name": "Trunk"
+      },
+      "sunroof": {
+        "name": "Sunroof"
+      }
     },
     "button": {
-      "refresh": { "name": "Refresh" },
-      "live_refresh": { "name": "Live refresh" },
-      "start_engine": { "name": "Start engine" },
-      "stop_engine": { "name": "Stop engine" },
-      "horn": { "name": "Horn" },
-      "light": { "name": "Light" },
-      "horn_light": { "name": "Horn and light" },
-      "open_windows": { "name": "Open windows" },
-      "close_windows": { "name": "Close windows" },
-      "window_ventilation": { "name": "Window ventilation" }
+      "refresh": {
+        "name": "Refresh"
+      },
+      "live_refresh": {
+        "name": "Live refresh"
+      },
+      "start_engine": {
+        "name": "Start engine"
+      },
+      "stop_engine": {
+        "name": "Stop engine"
+      },
+      "horn": {
+        "name": "Horn"
+      },
+      "light": {
+        "name": "Light"
+      },
+      "horn_light": {
+        "name": "Horn and light"
+      },
+      "open_windows": {
+        "name": "Open windows"
+      },
+      "close_windows": {
+        "name": "Close windows"
+      },
+      "window_ventilation": {
+        "name": "Window ventilation"
+      }
     },
     "device_tracker": {
-      "location": { "name": "Location" }
+      "location": {
+        "name": "Location"
+      }
     },
     "lock": {
-      "vehicle_lock": { "name": "Lock" }
+      "vehicle_lock": {
+        "name": "Lock"
+      }
+    },
+    "switch": {
+      "vacation": {
+        "name": "Vacation"
+      }
     }
   },
   "services": {

@@ -11,6 +11,7 @@ PLATFORMS = [
     "device_tracker",
     "lock",
     "button",
+    "switch",
 ]
 
 
@@ -63,6 +64,7 @@ async def async_unload_entry(hass: Any, entry: Any) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         coordinator = hass.data[DOMAIN].pop(entry.entry_id)
+        await coordinator.async_shutdown()
         await async_close_client(coordinator.client)
     return unload_ok
 
@@ -71,8 +73,12 @@ async def _async_update_listener(
     hass: Any,
     entry: Any,
 ) -> None:
-    """Reload the config entry after options or reconfigure updates."""
-    await hass.config_entries.async_reload(entry.entry_id)
+    """Apply polling/PIN options locally; reload only when credentials change."""
+    coordinator = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if coordinator is None or coordinator.entry_data != dict(entry.data):
+        await hass.config_entries.async_reload(entry.entry_id)
+        return
+    await coordinator.async_apply_options()
 
 
 def _coordinator_for_service(

@@ -77,11 +77,52 @@ To add or change the PIN in Home Assistant after setup:
 5. Restart Home Assistant if the Configure button does not appear immediately after a
    HACS update.
 
+## Engine controls
+
+The **Start** button requests a five-minute engine run with air conditioning off.
+The **Stop** button ends a remote engine run. Both use the request format for the
+vehicle's protocol: CCS2 uses `command` and flat start settings; older vehicles use
+`action` and nested start settings. Engine commands are sent once and never replayed
+automatically after a failed request.
+
+## Other remote controls
+
+Lock/unlock, horn/lights, and window controls use the endpoint and payload for the
+vehicle's protocol. **Horn** and **Horn / Light** both request Hyundai Australia's
+combined horn-and-lights action; **Light** requests lights only.
+
+Window actions first read the vehicle profile to select the supported window API.
+**Window ventilation** requests the ventilation position, rather than fully opening
+the windows. Vehicles that do not report the required capability return an explicit
+unsupported-action error. These actions control windows only, including on vehicles
+that also have powered curtains.
+
+The [action request reference](docs/action-request-formats.md) documents all exposed
+actions, their request bodies, and the source used to verify them. Contract tests
+run without contacting Hyundai or operating a vehicle.
+
 ## Refresh behavior
 
-The integration polls cached Hyundai Bluelink vehicle data every 5 minutes through
-one `DataUpdateCoordinator`. All sensors, binary sensors, locks, buttons, and device
-trackers read from that shared coordinator data.
+The integration polls cached Hyundai data through one `DataUpdateCoordinator`.
+In **Configure**, select a native Home Assistant **Schedule** helper and set the
+intervals for inside and outside its time blocks (defaults: 5 and 60 minutes).
+Without a schedule, or while it is unavailable, the outside interval applies.
+Edit the calendar under **Settings > Devices & services > Helpers**; it supports
+multiple blocks per day and uses Home Assistant's local time. Engine state does
+not override the selected cadence. Request failures back off to the outside interval.
+
+The car's **Vacation** switch pauses all requests for the account: automatic
+polling, manual refreshes and remote controls. The setting survives restarts;
+Home Assistant restores its last readings from a local telemetry snapshot without
+logging in to Hyundai. Switch Vacation off to refresh and resume the schedule.
+It is also available in Configure, including if there is no saved vehicle snapshot.
+It does not change anything in the official Hyundai app or stop checks by other apps.
+Automatic polling reads cached data; it never sends a live/force refresh to the car.
+
+The GPS tracker exposes Hyundai's actual location observation time. Faster polling
+does not guarantee live driving positions. See [car tracking and commute alerts](
+docs/car-tracking.md) for map history, freshness attributes and an optional
+Work-to-Home ETA notification blueprint.
 
 Two refresh buttons are exposed:
 
@@ -89,6 +130,17 @@ Two refresh buttons are exposed:
 - **Live refresh**: calls the PIN-protected v2 live-status endpoint before the
   coordinator refetches vehicle status. This is useful when you want to ask Hyundai
   for newer car telemetry on demand.
+
+Authentication tokens refresh automatically. If Hyundai rejects a refresh token or
+a cached-data request, the integration attempts a fresh login with the saved
+credentials. Concurrent requests share authentication recovery, and vehicle-control
+commands are never automatically replayed. Temporary connection or server failures
+remain retryable.
+
+If Hyundai requests a password update or another account action, sign out and back
+into the official Bluelink app and complete its prompts. Then use the Home Assistant
+reauthentication repair with your current password. These interactive account steps
+cannot be completed by automatic token refresh.
 
 ## Translations
 
@@ -107,15 +159,17 @@ The example is based on a vehicle named `SANTA FE`, so it uses entity IDs such a
 Assistant creates for your vehicle.
 
 The dashboard example assumes these optional HACS frontend cards are installed:
-Mushroom, card-mod, and slider-entity-row. It also references a vehicle image at
+Mushroom and card-mod. It also references a vehicle image at
 `/local/images/white_suv_top_down.png`, which maps to
 `<Home Assistant config>/www/images/white_suv_top_down.png`.
 
 ## Development checks
 
 ```powershell
+python -m pip install -r requirements-dev.txt
 python -m pytest tests -q
 python -m compileall custom_components tests
+python -m ruff check .
 ```
 
 [build-badge]: https://github.com/remy-burney/hyundai-bluelink/actions/workflows/validate.yml/badge.svg
@@ -124,5 +178,5 @@ python -m compileall custom_components tests
 [hacs-badge]: https://img.shields.io/badge/HACS-custom-orange.svg?style=flat-square
 [hacs-button]: https://my.home-assistant.io/badges/hacs_repository.svg
 [hacs-link]: https://my.home-assistant.io/redirect/hacs_repository/?owner=remy-burney&repository=hyundai-bluelink&category=integration
-[release-badge]: https://img.shields.io/badge/release-v0.1.5-blue?style=flat-square
+[release-badge]: https://img.shields.io/badge/release-v0.2.0-blue?style=flat-square
 [releases-link]: https://github.com/remy-burney/hyundai-bluelink/releases

@@ -1,0 +1,168 @@
+blueprint:
+  name: Car departure toward a destination with ETA (Australia)
+  description: >-
+    Requires fresh Hyundai GPS timestamps and Waze Travel Time. After leaving
+    the origin zone, confirms GPS progress toward the destination of at least
+    500 metres. The departure fix counts as the first approach sample; optionally
+    require extra successive samples for more confidence. Sends one notification
+    per trip. Direction is an inference, not the driver's selected destination.
+    Enabling this shares the car and destination coordinates with Waze.
+    Uses kilometres from a Home Assistant instance with metric units.
+    Set your notification action's message to {{ commute_message }}.
+  domain: automation
+  input:
+    car:
+      name: Car location
+      selector:
+        entity:
+          domain: device_tracker
+    origin:
+      name: Departure zone (for example Work)
+      selector:
+        entity:
+          domain: zone
+    destination:
+      name: Destination zone
+      default: zone.home
+      selector:
+        entity:
+          domain: zone
+    confirmation_samples:
+      name: Direction confirmation samples
+      description: >-
+        One announces as soon as the departure fix shows at least 500 metres
+        progress toward the destination. Two or three reduce false positives
+        but add roughly one polling interval per extra sample.
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 3
+          step: 1
+          mode: slider
+    notification:
+      name: Notification action
+      description: Use {{ commute_message }} as the message.
+      selector:
+        action: {}
+
+mode: single
+max_exceeded: silent
+variables:
+  car: !input car
+  origin: !input origin
+  destination: !input destination
+  required_samples: !input confirmation_samples
+triggers:
+  - trigger: zone
+    entity_id: !input car
+    zone: !input origin
+    event: leave
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.from_state is not none and trigger.to_state is not none
+         and trigger.from_state.state not in ['unknown', 'unavailable']
+         and trigger.to_state.state not in ['unknown', 'unavailable']
+         and origin != destination }}
+  - condition: template
+    value_template: >-
+      {% set stamp = as_timestamp(state_attr(car, 'location_updated_at'), 0) %}
+      {{ stamp > 0 and 0 <= as_timestamp(now()) - stamp <= 180
+         and not state_attr(car, 'polling_paused')
+         and distance(trigger.from_state, destination) is number
+         and distance(car, destination) is number
+         and distance(car, destination) * 1000 > state_attr(destination, 'radius') | float(100) }}
+actions:
+  - variables:
+      initial_distance: "{{ distance(trigger.from_state, destination) }}"
+      previous_distance: "{{ distance(car, destination) }}"
+      approach_count: "{{ 1 if initial_distance - previous_distance >= 0.1 else 0 }}"
+      deadline: "{{ as_timestamp(now()) + 1200 }}"
+  - repeat:
+      while:
+        - condition: template
+          value_template: >-
+            {{ as_timestamp(now()) < deadline
+               and (approach_count < required_samples or initial_distance - previous_distance < 0.5) }}
+      sequence:
+        - wait_for_trigger:
+            - trigger: state
+              entity_id: !input car
+              attribute: location_updated_at
+            - trigger: state
+              entity_id: !input car
+              attribute: polling_paused
+              to: true
+          timeout: '00:15:00'
+          continue_on_timeout: false
+        - if:
+            - condition: template
+              value_template: >-
+                {% set stamp = as_timestamp(state_attr(car, 'location_updated_at'), 0) %}
+                {% set to_origin = distance(car, origin) %}
+                {% set to_destination = distance(car, destination) %}
+                {{ not (states(car) not in ['unknown', 'unavailable']
+                   and not state_attr(car, 'polling_paused')
+                   and stamp > 0 and 0 <= as_timestamp(now()) - stamp <= 180
+                   and to_origin is number and to_destination is number
+                   and to_origin * 1000 > state_attr(origin, 'radius') | float(100)
+                   and to_destination * 1000 > state_attr(destination, 'radius') | float(100)) }}
+          then:
+            - stop: Vacation is on, GPS is stale/unavailable, or the car reached either zone
+        - variables:
+            current_distance: "{{ distance(car, destination) }}"
+            approach_count: >-
+              {{ approach_count + 1 if previous_distance - current_distance >= 0.1 else 0 }}
+            previous_distance: "{{ current_distance }}"
+  - condition: template
+    value_template: >-
+      {{ approach_count >= required_samples and initial_distance - previous_distance >= 0.5
+         and not state_attr(car, 'polling_paused')
+         and as_timestamp(now()) < deadline }}
+  - variables:
+      routes: {}
+  - action: waze_travel_time.get_travel_times
+    continue_on_error: true
+    data:
+      origin: "{{ car }}"
+      destination: "{{ destination }}"
+      region: au
+      realtime: true
+      units: metric
+      vehicle_type: car
+    response_variable: routes
+  - variables:
+      minutes: >-
+        {% set durations = routes.get('routes', []) | map(attribute='duration')
+           | select('number') | select('gt', 0) | list %}
+        {{ (durations | min | round(0, 'ceil') | int) if durations else 0 }}
+      commute_message: >-
+        Car left {{ state_attr(origin, 'friendly_name') }} and appears to be
+        heading to {{ state_attr(destination, 'friendly_name') }}.
+        {% if minutes > 0 %}
+        Estimated arrival {{ (now() + timedelta(minutes=minutes)).strftime('%I:%M %p').lstrip('0') }}
+        (about {{ minutes }} minutes).
+        {% else %}
+        A route ETA is currently unavailable.
+        {% endif %}
+  - condition: template
+    value_template: >-
+      {% set stamp = as_timestamp(state_attr(car, 'location_updated_at'), 0) %}
+      {{ not state_attr(car, 'polling_paused')
+         and states(car) not in ['unknown', 'unavailable']
+         and 0 <= as_timestamp(now()) - stamp <= 180
+         and distance(car, destination) is number
+         and distance(car, destination) * 1000 > state_attr(destination, 'radius') | float(100) }}
+  - sequence: !input notification
+  - wait_for_trigger:
+      - trigger: zone
+        entity_id: !input car
+        zone: !input destination
+        event: enter
+      - trigger: zone
+        entity_id: !input car
+        zone: !input origin
+        event: enter
+    timeout: '04:00:00'
+    continue_on_timeout: false

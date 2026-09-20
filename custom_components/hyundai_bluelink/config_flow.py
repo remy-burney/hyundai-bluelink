@@ -10,13 +10,25 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 
 from .client import (
+    BluelinkAccountActionRequiredError,
     BluelinkAuthenticationError,
     BluelinkConnectionError,
     async_close_client,
     async_create_client,
     async_login_client,
 )
-from .const import CONF_PIN, CONF_REGION, DEFAULT_REGION, DOMAIN
+from .const import (
+    CONF_ACTIVE_INTERVAL,
+    CONF_IDLE_INTERVAL,
+    CONF_PIN,
+    CONF_POLLING_SCHEDULE,
+    CONF_REGION,
+    CONF_VACATION,
+    DEFAULT_ACTIVE_INTERVAL,
+    DEFAULT_IDLE_INTERVAL,
+    DEFAULT_REGION,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,6 +57,8 @@ class HyundaiBluelinkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data = _clean_user_input(user_input)
             try:
                 info = await _async_validate_input(self.hass, data)
+            except BluelinkAccountActionRequiredError:
+                errors["base"] = "account_action_required"
             except BluelinkAuthenticationError:
                 errors["base"] = "invalid_auth"
             except BluelinkConnectionError:
@@ -83,6 +97,8 @@ class HyundaiBluelinkConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data.update(_clean_user_input(user_input))
             try:
                 info = await _async_validate_input(self.hass, data)
+            except BluelinkAccountActionRequiredError:
+                errors["base"] = "account_action_required"
             except BluelinkAuthenticationError:
                 errors["base"] = "invalid_auth"
             except BluelinkConnectionError:
@@ -114,9 +130,14 @@ class HyundaiBluelinkOptionsFlow(config_entries.OptionsFlow):
     ) -> config_entries.ConfigFlowResult:
         """Manage integration options."""
         if user_input is not None:
+            options = dict(self.config_entry.options)
+            # An omitted optional entity selector means the schedule was cleared.
+            options.pop(CONF_POLLING_SCHEDULE, None)
+            options.update(user_input)
+            options[CONF_PIN] = user_input.get(CONF_PIN, "")
             return self.async_create_entry(
                 title="",
-                data={CONF_PIN: user_input.get(CONF_PIN, "")},
+                data=options,
             )
 
         return self.async_show_form(
@@ -185,6 +206,46 @@ def _options_schema(config_entry: config_entries.ConfigEntry) -> vol.Schema:
             ): selector.TextSelector(
                 selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
             ),
+            vol.Optional(
+                CONF_POLLING_SCHEDULE,
+                description={
+                    "suggested_value": config_entry.options.get(CONF_POLLING_SCHEDULE)
+                },
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="schedule")
+            ),
+            vol.Required(
+                CONF_ACTIVE_INTERVAL,
+                default=config_entry.options.get(
+                    CONF_ACTIVE_INTERVAL, DEFAULT_ACTIVE_INTERVAL
+                ),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=5,
+                    max=1440,
+                    step=1,
+                    mode=selector.NumberSelectorMode.BOX,
+                    unit_of_measurement="min",
+                )
+            ),
+            vol.Required(
+                CONF_IDLE_INTERVAL,
+                default=config_entry.options.get(
+                    CONF_IDLE_INTERVAL, DEFAULT_IDLE_INTERVAL
+                ),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=5,
+                    max=1440,
+                    step=1,
+                    mode=selector.NumberSelectorMode.BOX,
+                    unit_of_measurement="min",
+                )
+            ),
+            vol.Required(
+                CONF_VACATION,
+                default=config_entry.options.get(CONF_VACATION, False),
+            ): selector.BooleanSelector(),
         }
     )
 

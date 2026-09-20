@@ -7,6 +7,7 @@ before a Home Assistant Core submission.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import secrets
@@ -44,6 +45,10 @@ class BluelinkAuthenticationError(Exception):
     """Authentication error returned by Hyundai Bluelink."""
 
 
+class BluelinkAccountActionRequiredError(BluelinkAuthenticationError):
+    """Hyundai requires the user to complete an interactive account step."""
+
+
 class BluelinkConnectionError(Exception):
     """Connection or API error returned by Hyundai Bluelink."""
 
@@ -65,6 +70,9 @@ class AsyncBluelinkClient:
         self._tokens: dict[str, Any] = {}
         self._device_id: str | None = None
         self._vehicles: list[dict[str, Any]] = []
+        self._credentials: tuple[str, str] | None = None
+        self._auth_lock = asyncio.Lock()
+        self._authentication_error: BluelinkAuthenticationError | None = None
 
     async def async_login(
         self,
@@ -74,15 +82,41 @@ class AsyncBluelinkClient:
         pin: str | None = None,
     ) -> None:
         """Authenticate with Hyundai Bluelink."""
+        async with self._auth_lock:
+            self._credentials = (username, password)
+            self._authentication_error = None
+            await self._async_login()
+
+    async def _async_login(self) -> None:
+        """Sign in with saved credentials while holding the authentication lock."""
+        if self._authentication_error is not None:
+            raise self._authentication_error
+        try:
+            await self._async_sign_in()
+        except BluelinkAuthenticationError as exc:
+            # Other requests must share a rejected login, not submit the same
+            # password again. An explicit login resets this terminal failure.
+            self._authentication_error = exc
+            raise
+
+    async def _async_sign_in(self) -> None:
+        """Complete the Hyundai authorization-code flow."""
+        if self._credentials is None:
+            raise BluelinkAuthenticationError(
+                "Not authenticated with Hyundai Bluelink."
+            )
+        username, password = self._credentials
         self.account_id = username
-        self._device_id = await self._async_register_device()
+        if self._device_id is None:
+            self._device_id = await self._async_register_device()
 
         try:
             async with self.session.get(
                 self._auth_url(),
                 timeout=REQUEST_TIMEOUT,
-            ):
-                pass
+            ) as auth_response:
+                if auth_response.status >= 400:
+                    await _async_checked_json(auth_response)
             response = await self._async_request(
                 "POST",
                 "/api/v1/user/signin",
@@ -93,11 +127,22 @@ class AsyncBluelinkClient:
                 },
                 authenticated=False,
             )
-        except BluelinkConnectionError as exc:
-            raise BluelinkAuthenticationError(str(exc)) from exc
+        except (ClientError, TimeoutError) as exc:
+            raise BluelinkConnectionError(str(exc)) from exc
 
         redirect_url = response.get("redirectUrl")
         if not redirect_url:
+            if response.get("step") == 5:
+                raise BluelinkAccountActionRequiredError(
+                    "Hyundai requests a password update. Sign in to the official "
+                    "Bluelink app and complete the password prompt, then "
+                    "reauthenticate in Home Assistant with your current password."
+                )
+            if "step" in response or response.get("upgrade"):
+                raise BluelinkAccountActionRequiredError(
+                    "Sign in to the official Bluelink app and complete the "
+                    "account prompts, then reauthenticate in Home Assistant."
+                )
             raise BluelinkAuthenticationError(
                 "Hyundai did not return an OAuth redirect URL."
             )
@@ -107,10 +152,12 @@ class AsyncBluelinkClient:
 
     async def async_close(self) -> None:
         """Close client resources."""
+        self._credentials = None
+        self._tokens = {}
+        self._authentication_error = None
 
     async def async_get_vehicles(self) -> list[dict[str, Any]]:
         """Return vehicles for the account."""
-        await self._async_ensure_session()
         data = await self._async_request("GET", "/api/v1/spa/vehicles")
         vehicles = data.get("resMsg", {}).get("vehicles")
         if not isinstance(vehicles, list):
@@ -123,7 +170,7 @@ class AsyncBluelinkClient:
     async def async_get_vehicle_status(self, vehicle_id: str) -> dict[str, Any]:
         """Return cached vehicle status."""
         vehicle = await self._async_get_vehicle_record(vehicle_id)
-        ccs2 = _ccs2_supported(vehicle)
+        ccs2 = _ccs2_protocol(vehicle)
         path = (
             f"/api/v1/spa/vehicles/{vehicle_id}/ccs2/carstatus/latest"
             if ccs2
@@ -137,7 +184,7 @@ class AsyncBluelinkClient:
         return await self._async_request(
             "GET",
             f"/api/v1/spa/vehicles/{vehicle_id}/location/park",
-            ccs2=_ccs2_supported(vehicle),
+            ccs2=_ccs2_protocol(vehicle),
         )
 
     async def async_refresh_vehicle_status(self, vehicle_id: str) -> dict[str, Any]:
@@ -152,7 +199,7 @@ class AsyncBluelinkClient:
     ) -> dict[str, Any]:
         """Request live vehicle status through the PIN-protected v2 endpoint."""
         vehicle = await self._async_get_vehicle_record(vehicle_id)
-        ccs2 = _ccs2_supported(vehicle)
+        ccs2 = _ccs2_protocol(vehicle)
         path = (
             f"/api/v2/spa/vehicles/{vehicle_id}/ccs2/carstatus"
             if ccs2
@@ -165,8 +212,9 @@ class AsyncBluelinkClient:
         return await self._async_vehicle_command(
             vehicle_id,
             "door",
-            {"action": "lock"},
+            {"action": "close", "deviceId": self._device_id},
             pin=pin,
+            ccs2_body={"command": "close"},
         )
 
     async def async_unlock(self, vehicle_id: str, *, pin: str) -> dict[str, Any]:
@@ -174,8 +222,9 @@ class AsyncBluelinkClient:
         return await self._async_vehicle_command(
             vehicle_id,
             "door",
-            {"action": "unlock"},
+            {"action": "open", "deviceId": self._device_id},
             pin=pin,
+            ccs2_body={"command": "open"},
         )
 
     async def async_start_engine(
@@ -184,12 +233,13 @@ class AsyncBluelinkClient:
         *,
         pin: str,
     ) -> dict[str, Any]:
-        """Start the engine."""
+        """Start the engine for five minutes with air conditioning off."""
         return await self._async_vehicle_command(
             vehicle_id,
             "engine",
-            {"action": "start"},
+            {"action": "start", "options": {"airCtrl": 0, "igniOnDuration": 5}},
             pin=pin,
+            ccs2_body={"command": "start", "hvacCtrl": 0, "ignitionDuration": 5},
         )
 
     async def async_stop_engine(self, vehicle_id: str, *, pin: str) -> dict[str, Any]:
@@ -197,21 +247,35 @@ class AsyncBluelinkClient:
         return await self._async_vehicle_command(
             vehicle_id,
             "engine",
-            {"action": "stop"},
+            {"action": "stop", "deviceId": self._device_id},
             pin=pin,
+            ccs2_body={"command": "stop"},
         )
 
     async def async_horn(self, vehicle_id: str, *, pin: str) -> dict[str, Any]:
-        """Sound the horn."""
-        return await self._async_vehicle_command(vehicle_id, "horn", {}, pin=pin)
+        """Sound the horn and flash the lights, as in the Australian app."""
+        return await self.async_horn_light(vehicle_id, pin=pin)
 
     async def async_light(self, vehicle_id: str, *, pin: str) -> dict[str, Any]:
         """Flash the lights."""
-        return await self._async_vehicle_command(vehicle_id, "light", {}, pin=pin)
+        return await self._async_vehicle_command(
+            vehicle_id,
+            "light",
+            {"deviceId": self._device_id},
+            pin=pin,
+            ccs2_body={"command": "on"},
+        )
 
     async def async_horn_light(self, vehicle_id: str, *, pin: str) -> dict[str, Any]:
         """Sound the horn and flash the lights."""
-        return await self._async_vehicle_command(vehicle_id, "hornlight", {}, pin=pin)
+        return await self._async_vehicle_command(
+            vehicle_id,
+            "horn",
+            {"deviceId": self._device_id},
+            pin=pin,
+            ccs2_body={"command": "on"},
+            ccs2_command="hornlight",
+        )
 
     async def async_open_windows(
         self,
@@ -220,12 +284,7 @@ class AsyncBluelinkClient:
         pin: str,
     ) -> dict[str, Any]:
         """Open the windows."""
-        return await self._async_vehicle_command(
-            vehicle_id,
-            "window",
-            {"action": "open"},
-            pin=pin,
-        )
+        return await self._async_window_command(vehicle_id, 1, pin=pin)
 
     async def async_close_windows(
         self,
@@ -234,12 +293,7 @@ class AsyncBluelinkClient:
         pin: str,
     ) -> dict[str, Any]:
         """Close the windows."""
-        return await self._async_vehicle_command(
-            vehicle_id,
-            "window",
-            {"action": "close"},
-            pin=pin,
-        )
+        return await self._async_window_command(vehicle_id, 0, pin=pin)
 
     async def async_ventilate_windows(
         self,
@@ -248,11 +302,77 @@ class AsyncBluelinkClient:
         pin: str,
     ) -> dict[str, Any]:
         """Start window ventilation."""
+        return await self._async_window_command(vehicle_id, 2, pin=pin)
+
+    async def _async_window_command(
+        self, vehicle_id: str, position: int, *, pin: str
+    ) -> dict[str, Any]:
+        """Select the window contract using the same capabilities as the app."""
+        vehicle = await self._async_get_vehicle_record(vehicle_id)
+        data = await self._async_request(
+            "GET",
+            f"/api/v1/spa/vehicles/{vehicle_id}/profile",
+            ccs2=_ccs2_protocol(vehicle),
+        )
+        payload = data.get("resMsg")
+        profiles = payload.get("vinInfo") if isinstance(payload, dict) else None
+        if (
+            not isinstance(profiles, list)
+            or not profiles
+            or not isinstance(profiles[0], dict)
+        ):
+            raise BluelinkConnectionError(
+                "Hyundai did not return a vehicle profile for window control."
+            )
+        profile = profiles[0]
+        options = profile.get("option") or {}
+        service_options = profile.get("serviceOption") or {}
+        old_windows = (
+            _option_number(options, "windowSafetyOption") == 1
+            and _option_number(options, "windowSafetyOption2") == -1
+        )
+        new_windows = _option_number(options, "windowSafetyOption2") == 3
+        control_option = _option_number(service_options, "windowControlOption")
+        if not (old_windows or new_windows):
+            raise BluelinkConnectionError(
+                "This vehicle does not report support for remote window control."
+            )
+        if position == 2 and not (new_windows or control_option in {2, 3}):
+            raise BluelinkConnectionError(
+                "This vehicle does not report support for window ventilation."
+            )
+        if old_windows and control_option == -1:
+            action = "open" if position == 1 else "close"
+            return await self._async_vehicle_command(
+                vehicle_id,
+                "window",
+                {"deviceId": self._device_id, "action": action},
+                pin=pin,
+                ccs2_body={"command": action},
+            )
+        ccs2_body: dict[str, Any] = {
+            "drvSeatWindow": position,
+            "psgSeatWindow": position,
+            "rlSeatWindow": position,
+            "rrSeatWindow": position,
+        }
+        seat_location = options.get("drvSeatLoc")
+        if seat_location:
+            ccs2_body["drvSeatLoc"] = seat_location
+        # Only request window movement. Absent curtain fields are omitted by
+        # the app's serializer too; never send invented values or JSON nulls.
         return await self._async_vehicle_command(
             vehicle_id,
-            "window",
-            {"action": "ventilation"},
+            "windowcurtain",
+            {
+                "deviceId": self._device_id,
+                "frontLeft": position,
+                "frontRight": position,
+                "backLeft": position,
+                "backRight": position,
+            },
             pin=pin,
+            ccs2_body=ccs2_body,
         )
 
     async def _async_vehicle_command(
@@ -262,19 +382,21 @@ class AsyncBluelinkClient:
         body: dict[str, Any],
         *,
         pin: str,
+        ccs2_body: dict[str, Any] | None = None,
+        ccs2_command: str | None = None,
     ) -> dict[str, Any]:
         """Execute a PIN-protected vehicle command."""
         vehicle = await self._async_get_vehicle_record(vehicle_id)
-        ccs2 = _ccs2_supported(vehicle)
+        ccs2 = _ccs2_protocol(vehicle)
         path = (
-            f"/api/v2/spa/vehicles/{vehicle_id}/ccs2/control/{command}"
+            f"/api/v2/spa/vehicles/{vehicle_id}/ccs2/control/{ccs2_command or command}"
             if ccs2
             else f"/api/v2/spa/vehicles/{vehicle_id}/control/{command}"
         )
         return await self._async_control_request(
             "POST",
             path,
-            json_data=body,
+            json_data=ccs2_body if ccs2 and ccs2_body is not None else body,
             pin=pin,
             ccs2=ccs2,
         )
@@ -286,10 +408,10 @@ class AsyncBluelinkClient:
         *,
         json_data: dict[str, Any] | None = None,
         pin: str | None = None,
-        ccs2: bool = False,
+        ccs2: int = 0,
     ) -> dict[str, Any]:
         """Call a control endpoint with a short-lived control token."""
-        control_token = await self._async_get_control_token(pin)
+        control_token = await self._async_get_control_token(pin, ccs2=ccs2)
         headers = self._api_headers(control_token, ccs2=ccs2)
         return await self._async_request(
             method,
@@ -299,7 +421,7 @@ class AsyncBluelinkClient:
             authenticated=False,
         )
 
-    async def _async_get_control_token(self, pin: str | None) -> str:
+    async def _async_get_control_token(self, pin: str | None, *, ccs2: int = 0) -> str:
         """Return a short-lived remote control token."""
         if pin is None:
             raise BluelinkAuthenticationError("Remote control PIN is required.")
@@ -307,6 +429,7 @@ class AsyncBluelinkClient:
             "PUT",
             "/api/v1/user/pin",
             json_data={"deviceId": self._device_id, "pin": pin},
+            ccs2=ccs2,
         )
         token = data.get("controlToken") or data.get("resMsg", {}).get("controlToken")
         if not token:
@@ -322,18 +445,30 @@ class AsyncBluelinkClient:
                 return vehicle
         raise BluelinkConnectionError(f"Unknown Bluelink vehicle ID: {vehicle_id}")
 
-    async def _async_ensure_session(self) -> None:
-        """Refresh the OAuth session if needed."""
-        if not self._tokens:
-            raise BluelinkAuthenticationError(
-                "Not authenticated with Hyundai Bluelink."
-            )
-        if int(self._tokens.get("expires_at") or 0) > int(time.time()):
-            return
-        refresh_token = self._tokens.get("refresh_token")
-        if not refresh_token:
-            raise BluelinkAuthenticationError("Hyundai refresh token is missing.")
-        self._tokens = await self._async_refresh_token(str(refresh_token))
+    async def _async_ensure_session(self) -> bool:
+        """Ensure valid tokens and return whether a fresh login was needed."""
+        async with self._auth_lock:
+            if self._authentication_error is not None:
+                raise self._authentication_error
+            if int(self._tokens.get("expires_at") or 0) > int(time.time()):
+                return False
+            refresh_token = self._tokens.get("refresh_token")
+            if refresh_token:
+                try:
+                    self._tokens = await self._async_refresh_token(str(refresh_token))
+                    return False
+                except BluelinkAuthenticationError:
+                    # Only rejected credentials warrant a fresh login. Let outages
+                    # propagate as connection errors so Home Assistant retries later.
+                    pass
+            await self._async_login()
+            return True
+
+    async def _async_reauthenticate(self, rejected_tokens: dict[str, Any]) -> None:
+        """Replace a rejected session once, sharing recovery across requests."""
+        async with self._auth_lock:
+            if self._tokens is rejected_tokens:
+                await self._async_login()
 
     async def _async_register_device(self) -> str:
         """Register a pseudo push device and return the Hyundai device ID."""
@@ -403,11 +538,14 @@ class AsyncBluelinkClient:
         json_data: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         authenticated: bool = True,
-        ccs2: bool = False,
+        ccs2: int = 0,
+        retry_auth: bool = True,
     ) -> dict[str, Any]:
         """Make a Hyundai API request and validate the JSON response."""
+        logged_in = False
         if authenticated:
-            await self._async_ensure_session()
+            logged_in = await self._async_ensure_session()
+        request_tokens = self._tokens
         request_headers = headers or self._api_headers(
             self._tokens.get("access_token") if authenticated else None,
             ccs2=ccs2,
@@ -424,17 +562,29 @@ class AsyncBluelinkClient:
             ) as response:
                 return await _async_checked_json(response)
         except BluelinkAuthenticationError:
-            raise
+            if not authenticated or method != "GET" or not retry_auth or logged_in:
+                raise
+            await self._async_reauthenticate(request_tokens)
+            return await self._async_request(
+                method,
+                path,
+                data=data,
+                json_data=json_data,
+                headers=headers,
+                authenticated=authenticated,
+                ccs2=ccs2,
+                retry_auth=False,
+            )
         except BluelinkConnectionError:
             raise
-        except ClientError as exc:
+        except (ClientError, TimeoutError) as exc:
             raise BluelinkConnectionError(str(exc)) from exc
 
     def _api_headers(
         self,
         token: str | None,
         *,
-        ccs2: bool = False,
+        ccs2: int = 0,
     ) -> dict[str, str]:
         """Return common Hyundai API headers."""
         headers = {
@@ -444,7 +594,7 @@ class AsyncBluelinkClient:
             "Host": BASE_HOST,
             "Connection": "close",
             "Accept-Encoding": "gzip",
-            "Ccuccs2protocolsupport": "1" if ccs2 else "0",
+            "Ccuccs2protocolsupport": str(ccs2),
             "User-Agent": "okhttp/3.12.0",
             "Content-Type": "application/json;charset=UTF-8",
         }
@@ -473,6 +623,10 @@ async def _async_checked_json(response: Any) -> dict[str, Any]:
     try:
         data = await response.json(content_type=None)
     except (json.JSONDecodeError, ValueError) as exc:
+        if response.status in {401, 403}:
+            raise BluelinkAuthenticationError(
+                f"Hyundai returned HTTP {response.status}."
+            ) from exc
         raise BluelinkConnectionError(
             f"Hyundai returned non-JSON HTTP {response.status}."
         ) from exc
@@ -481,24 +635,41 @@ async def _async_checked_json(response: Any) -> dict[str, Any]:
         raise BluelinkAuthenticationError(
             f"Hyundai returned HTTP {response.status}: {_safe_json(data)}"
         )
-    if response.status >= 400:
+    if response.status == 429 or response.status >= 500:
         raise BluelinkConnectionError(
             f"Hyundai returned HTTP {response.status}: {_safe_json(data)}"
         )
 
     if isinstance(data, dict):
         oauth_error = data.get("error") or data.get("error_description")
-        if oauth_error:
+        if isinstance(oauth_error, str) and oauth_error in {
+            "invalid_grant",
+            "invalid_token",
+            "invalid_client",
+            "unauthorized_client",
+            "access_denied",
+        }:
             raise BluelinkAuthenticationError(f"Hyundai API error: {_safe_json(data)}")
         ret_code = str(data.get("retCode") or "").upper()
         res_code = str(data.get("resCode") or "").upper()
-        if ret_code in {"F", "FAIL", "FAILED", "ERROR", "E"} or res_code in {
+        failed = ret_code in {"F", "FAIL", "FAILED", "ERROR", "E"} or res_code in {
             "F",
             "FAIL",
             "FAILED",
             "ERROR",
             "E",
-        }:
+        }
+        if res_code == "4004" and (response.status >= 400 or failed):
+            raise BluelinkConnectionError(
+                "Hyundai is still processing a previous remote command (4004). "
+                "Wait for it to finish before trying again. The displayed vehicle "
+                "status is the last known status and may be delayed."
+            )
+        if response.status >= 400 or oauth_error:
+            raise BluelinkConnectionError(
+                f"Hyundai returned HTTP {response.status}: {_safe_json(data)}"
+            )
+        if failed:
             message = data.get("resMsg") or data.get("msg") or data
             raise BluelinkConnectionError(f"Hyundai API error: {_safe_json(message)}")
         return data
@@ -561,22 +732,40 @@ def _normalize_bearer(token: str) -> str:
     return token if token.startswith("Bearer ") else f"Bearer {token}"
 
 
-def _ccs2_supported(vehicle: dict[str, Any]) -> bool:
-    """Return true if a vehicle record reports CCS2 support."""
-    return str(vehicle.get("ccuCCS2ProtocolSupport") or "0") not in {"0", "false"}
+def _ccs2_protocol(vehicle: dict[str, Any]) -> int:
+    """Preserve the reported protocol version in Hyundai request headers."""
+    try:
+        return max(0, int(vehicle.get("ccuCCS2ProtocolSupport") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _option_number(options: Any, key: str) -> int:
+    """Read an integer capability, preserving the app's missing-value sentinel."""
+    if not isinstance(options, dict):
+        return -1
+    try:
+        return int(options.get(key, -1))
+    except (TypeError, ValueError):
+        return -1
 
 
 def _safe_json(value: Any) -> str:
     """Return redacted JSON for error messages."""
-    sensitive = {"access_token", "refresh_token", "authorization", "controltoken"}
+    sensitive = {
+        "access_token",
+        "refresh_token",
+        "authorization",
+        "controltoken",
+        "password",
+        "pin",
+    }
 
     def redact(item: Any) -> Any:
         if isinstance(item, dict):
             return {
                 key: (
-                    "***redacted***"
-                    if str(key).lower() in sensitive
-                    else redact(inner)
+                    "***redacted***" if str(key).lower() in sensitive else redact(inner)
                 )
                 for key, inner in item.items()
             }
